@@ -38,6 +38,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 import static com.tianji.common.constants.ErrorInfo.Msg.OPERATE_FAILED;
@@ -72,7 +73,9 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
         Order order = new Order();
         // 2.1.计算订单金额
         Integer totalAmount = courseInfos.stream()
-                .map(CourseSimpleInfoDTO::getPrice).reduce(Integer::sum).orElse(0);
+                                         .map(CourseSimpleInfoDTO::getPrice)
+                                         .reduce(Integer::sum)
+                                         .orElse(0);
         // TODO 2.2.计算优惠金额
         Integer discountAmount = 0;
         Integer realAmount = totalAmount - discountAmount;
@@ -101,11 +104,12 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
 
         // 6.构建下单结果
         return PlaceOrderResultVO.builder()
-                .orderId(orderId)
-                .payAmount(realAmount)
-                .status(order.getStatus())
-                .payOutTime(LocalDateTime.now().plusMinutes(tradeProperties.getPayOrderTTLMinutes()))
-                .build();
+                                 .orderId(orderId)
+                                 .payAmount(realAmount)
+                                 .status(order.getStatus())
+                                 .payOutTime(LocalDateTime.now()
+                                                          .plusMinutes(tradeProperties.getPayOrderTTLMinutes()))
+                                 .build();
     }
 
     private List<CourseSimpleInfoDTO> getOnShelfCourse(List<Long> courseIds) {
@@ -115,11 +119,12 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
         // 2.判断状态
         for (CourseSimpleInfoDTO courseInfo : courseInfos) {
             // 2.1.检查课程是否上架
-            if(!CourseStatus.SHELF.equalsValue(courseInfo.getStatus())){
+            if (!CourseStatus.SHELF.equalsValue(courseInfo.getStatus())) {
                 throw new BizIllegalException(TradeErrorInfo.COURSE_NOT_FOR_SALE);
             }
             // 2.2.检查课程是否过期
-            if(courseInfo.getPurchaseEndTime().isBefore(now)){
+            if (courseInfo.getPurchaseEndTime()
+                          .isBefore(now)) {
                 throw new BizIllegalException(TradeErrorInfo.COURSE_EXPIRED);
             }
         }
@@ -139,7 +144,7 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
             throw new BizIllegalException(TradeErrorInfo.COURSE_NOT_EXISTS);
         }
         CourseSimpleInfoDTO courseInfo = courseInfos.get(0);
-        if(!courseInfo.getFree()){
+        if (!courseInfo.getFree()) {
             // 非免费课程，直接报错
             throw new BizIllegalException(TradeErrorInfo.COURSE_NOT_FREE);
         }
@@ -168,18 +173,18 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
                 MqConstants.Exchange.ORDER_EXCHANGE,
                 MqConstants.Key.ORDER_PAY_KEY,
                 OrderBasicDTO.builder()
-                        .orderId(orderId)
-                        .userId(userId)
-                        .courseIds(cIds)
-                        .finishTime(order.getFinishTime())
-                        .build()
+                             .orderId(orderId)
+                             .userId(userId)
+                             .courseIds(cIds)
+                             .finishTime(order.getFinishTime())
+                             .build()
         );
         // 6.返回vo
         return PlaceOrderResultVO.builder()
-                .orderId(orderId)
-                .payAmount(0)
-                .status(order.getStatus())
-                .build();
+                                 .orderId(orderId)
+                                 .payAmount(0)
+                                 .status(order.getStatus())
+                                 .build();
     }
 
     @Override
@@ -190,7 +195,9 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
             throw new BizIllegalException(TradeErrorInfo.COURSE_NOT_EXISTS);
         }
         // 2.计算总价
-        int total = courseInfos.stream().mapToInt(CourseSimpleInfoDTO::getPrice).sum();
+        int total = courseInfos.stream()
+                               .mapToInt(CourseSimpleInfoDTO::getPrice)
+                               .sum();
         // TODO 3.计算折扣
         int discountAmount = 0;
         // 4.生成订单id
@@ -227,9 +234,9 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
             throw new DbException(TradeErrorInfo.PLACE_ORDER_FAILED);
         }
         // 4.2.写订单详情
-        if(orderDetails.size() == 1){
+        if (orderDetails.size() == 1) {
             success = detailService.save(orderDetails.get(0));
-        }else {
+        } else {
             success = detailService.saveBatch(orderDetails);
         }
         if (!success) {
@@ -247,12 +254,12 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
             throw new BadRequestException(ORDER_NOT_EXISTS);
         }
         // 2.判断订单状态是否已经取消，幂等判断
-        if(OrderStatus.CLOSED.equalsValue(order.getStatus())){
-           // 订单已经取消，无需重复操作
-           return;
+        if (OrderStatus.CLOSED.equalsValue(order.getStatus())) {
+            // 订单已经取消，无需重复操作
+            return;
         }
         // 3.判断订单是否未支付，只有未支付订单才可以取消
-        if(!OrderStatus.NO_PAY.equalsValue(order.getStatus())){
+        if (!OrderStatus.NO_PAY.equalsValue(order.getStatus())) {
             throw new BizIllegalException(ORDER_ALREADY_FINISH);
         }
         // 4.可以更新订单状态为取消了
@@ -280,7 +287,7 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
             return;
         }
         // 3.判断订单所属用户与当前登录用户是否一致
-        if(userId != order.getUserId()){
+        if (!Objects.equals(userId, order.getUserId())) {
             // 不一致，说明不是当前用户的订单，结束
             throw new BadRequestException("不能删除他人订单");
         }
@@ -308,13 +315,15 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
             return PageDTO.empty(p);
         }
         // 4.查询订单明细信息
-        List<Long> orderIds = records.stream().map(Order::getId).collect(Collectors.toList());
+        List<Long> orderIds = records.stream()
+                                     .map(Order::getId)
+                                     .collect(Collectors.toList());
         // 4.1.根据订单id查询订单明细
         List<OrderDetail> details = detailService.queryByOrderIds(orderIds);
         // 4.2.将订单明细分组，key是订单id，值是订单下的所有detail
         Map<Long, List<OrderDetailVO>> detailMap = details.stream()
-                .map(od -> BeanUtils.copyBean(od, OrderDetailVO.class))
-                .collect(Collectors.groupingBy(OrderDetailVO::getOrderId));
+                                                          .map(od -> BeanUtils.copyBean(od, OrderDetailVO.class))
+                                                          .collect(Collectors.groupingBy(OrderDetailVO::getOrderId));
         // 5.转换VO
         List<OrderPageVO> list = new ArrayList<>(orderIds.size());
         for (Order record : records) {
@@ -360,16 +369,17 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
         }
         // 2.计算超时时间
         LocalDateTime outTime = null;
-        if(OrderStatus.NO_PAY.equalsValue(order.getStatus())){
-            outTime = order.getCreateTime().plusMinutes(tradeProperties.getPayOrderTTLMinutes());
+        if (OrderStatus.NO_PAY.equalsValue(order.getStatus())) {
+            outTime = order.getCreateTime()
+                           .plusMinutes(tradeProperties.getPayOrderTTLMinutes());
         }
         // 3.封装结果
         return PlaceOrderResultVO.builder()
-                .orderId(orderId)
-                .payAmount(order.getRealAmount())
-                .status(order.getStatus())
-                .payOutTime(outTime)
-                .build();
+                                 .orderId(orderId)
+                                 .payAmount(order.getRealAmount())
+                                 .status(order.getStatus())
+                                 .payOutTime(outTime)
+                                 .build();
     }
 
     @Override
@@ -398,9 +408,11 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
                 MqConstants.Exchange.ORDER_EXCHANGE,
                 MqConstants.Key.ORDER_PAY_KEY,
                 OrderBasicDTO.builder()
-                        .orderId(o.getId()).userId(order.getUserId()).courseIds(cIds)
-                        .finishTime(o.getPayTime())
-                        .build()
+                             .orderId(o.getId())
+                             .userId(order.getUserId())
+                             .courseIds(cIds)
+                             .finishTime(o.getPayTime())
+                             .build()
         );
     }
 
