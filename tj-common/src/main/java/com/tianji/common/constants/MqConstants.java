@@ -1,7 +1,7 @@
 package com.tianji.common.constants;
 
 public interface MqConstants {
-    interface Exchange{
+    interface Exchange {
         /*课程有关的交换机*/
         String COURSE_EXCHANGE = "course.topic";
 
@@ -22,13 +22,17 @@ public interface MqConstants {
         /*交易服务延迟任务交换机*/
         String TRADE_DELAY_EXCHANGE = "trade.delay.topic";
 
-         /*点赞记录有关的交换机*/
+        /*点赞记录有关的交换机*/
         String LIKE_RECORD_EXCHANGE = "like.record.topic";
     }
+
     interface Queue {
         String ERROR_QUEUE_TEMPLATE = "error.{}.queue";
+        String ORDER_PAY_QUEUE = "learning.lesson.pay.queue";
+        String ORDER_REFUND_QUEUE = "learning.lesson.refund.queue";
     }
-    interface Key{
+
+    interface Key {
         /*课程有关的 RoutingKey*/
         String COURSE_NEW_KEY = "course.new";
         String COURSE_UP_KEY = "course.up";
