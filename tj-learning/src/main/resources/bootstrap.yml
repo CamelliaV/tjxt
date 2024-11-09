@@ -3,6 +3,8 @@ server:
   tomcat:
     uri-encoding: UTF-8   #服务编码
 spring:
+  main:
+    allow-circular-references: true
   profiles:
     active: dev
   application:

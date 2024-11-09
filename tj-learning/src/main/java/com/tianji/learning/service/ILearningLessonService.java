@@ -4,8 +4,10 @@ import com.baomidou.mybatisplus.extension.service.IService;
 import com.tianji.api.dto.trade.OrderBasicDTO;
 import com.tianji.common.domain.dto.PageDTO;
 import com.tianji.common.domain.query.PageQuery;
+import com.tianji.learning.domain.dto.LearningPlanDTO;
 import com.tianji.learning.domain.po.LearningLesson;
 import com.tianji.learning.domain.vo.LearningLessonVO;
+import com.tianji.learning.domain.vo.LearningPlanPageVO;
 
 /**
  * <p>
@@ -29,4 +31,11 @@ public interface ILearningLessonService extends IService<LearningLesson> {
     Integer countLearningLessonByCourse(Long courseId);
 
     void deleteLessonByCourse(Long userId, Long courseId);
+
+    void createLessonPlan(LearningPlanDTO dto);
+
+    LearningPlanPageVO queryMyPlan(PageQuery pageQuery);
+
+    void checkAndExpireLessons();
 }
+

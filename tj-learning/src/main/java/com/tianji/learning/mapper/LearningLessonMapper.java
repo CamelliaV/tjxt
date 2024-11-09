@@ -16,6 +16,9 @@ import org.apache.ibatis.annotations.Select;
 public interface LearningLessonMapper extends BaseMapper<LearningLesson> {
 
     // * 最近学习的一门课
-    @Select("SELECT  * FROM tj_learning.learning_lesson WHERE user_id = #{userId} AND status = 1 ORDER BY latest_learn_time DESC LIMIT 0, 1")
+    @Select("SELECT * FROM tj_learning.learning_lesson WHERE user_id = #{userId} AND status = 1 ORDER BY latest_learn_time DESC LIMIT 0, 1")
     LearningLesson queryCurrent(@Param("userId") Long userId);
+
+    @Select("SELECT SUM(week_freq) FROM tj_learning.learning_lesson WHERE user_id = #{userId} AND plan_status = 1 AND status IN (0, 1)")
+    Integer queryWeekFinishedPlan(@Param("userId") Long userId);
 }

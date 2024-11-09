@@ -77,7 +77,8 @@ public class DateUtils extends LocalDateTimeUtil {
         if (localDateTime == null) {
             return null;
         }
-        return localDateTime.toLocalDate().atStartOfDay();
+        return localDateTime.toLocalDate()
+                            .atStartOfDay();
     }
 
     /**
@@ -100,30 +101,35 @@ public class DateUtils extends LocalDateTimeUtil {
     }
 
 
-
     public static LocalDate getMonthBegin(LocalDate date) {
         return LocalDate.of(date.getYear(), date.getMonth(), 1);
     }
 
     public static LocalDate getMonthEnd(LocalDate date) {
-        return LocalDate.of(date.getYear(), date.getMonthValue() + 1, 1).minusDays(1);
+        return LocalDate.of(date.getYear(), date.getMonthValue() + 1, 1)
+                        .minusDays(1);
     }
 
     public static LocalDateTime getMonthBeginTime(LocalDate date) {
-        return LocalDate.of(date.getYear(), date.getMonth(), 1).atStartOfDay();
+        return LocalDate.of(date.getYear(), date.getMonth(), 1)
+                        .atStartOfDay();
     }
 
     public static LocalDateTime getMonthEndTime(LocalDate date) {
         return LocalDate.of(date.getYear(), date.getMonthValue() + 1, 1)
-                .minusDays(1).atTime(LocalTime.MAX);
+                        .minusDays(1)
+                        .atTime(LocalTime.MAX);
     }
 
     public static LocalDateTime getWeekBeginTime(LocalDate now) {
-        return now.minusDays(now.getDayOfWeek().getValue() - 1).atStartOfDay();
+        return now.minusDays(now.getDayOfWeek()
+                                .getValue() - 1)
+                  .atStartOfDay();
     }
 
     public static LocalDateTime getWeekEndTime(LocalDate now) {
-        return LocalDateTime.of(now.plusDays(8 - now.getDayOfWeek().getValue()), LocalTime.MAX);
+        return LocalDateTime.of(now.plusDays(7 - now.getDayOfWeek()
+                                                    .getValue()), LocalTime.MAX);
     }
 
     /**
@@ -131,16 +137,16 @@ public class DateUtils extends LocalDateTimeUtil {
      *
      * @return
      */
-    public static List<String> last15Day(){
+    public static List<String> last15Day() {
         // 1.定义日期列表
         List<String> days = new ArrayList<>();
         // 2.获取15天前的时间
         LocalDateTime time = now().minusDays(15);
         // 3.for循环遍历
-        for (int count = 0; count < 15; count++){
+        for (int count = 0; count < 15; count++) {
             // 3.1.格式化时间
             days.add(String.format("%s.%s",
-                    NumberUtils.repair0(time.getMonthValue(),2), NumberUtils.repair0(time.getDayOfMonth(), 2)));
+                    NumberUtils.repair0(time.getMonthValue(), 2), NumberUtils.repair0(time.getDayOfMonth(), 2)));
             // 3.2.日期加1天
             time = time.plusDays(1);
         }
