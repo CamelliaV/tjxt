@@ -18,7 +18,6 @@ import org.springframework.dao.DataAccessException;
 import org.springframework.data.redis.core.RedisOperations;
 import org.springframework.data.redis.core.SessionCallback;
 import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.PostConstruct;
@@ -69,7 +68,7 @@ public class LearningRecordDelayTaskHandler {
     /**
      * （仅实现，不采用）定时任务，每隔20秒检查Redis缓存是否有需要持久化的学习记录
      */
-    @Scheduled(fixedRate = 20_000)
+//    @Scheduled(fixedRate = 20_000)
     private void checkAndPersistRecords() {
         log.debug("定时持久化学习记录开始");
         // * 没有需要更新的数据（Redis数据为空）
