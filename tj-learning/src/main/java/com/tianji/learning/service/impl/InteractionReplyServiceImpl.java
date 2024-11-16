@@ -1,9 +1,12 @@
 package com.tianji.learning.service.impl;
 
+import com.baomidou.mybatisplus.core.metadata.OrderItem;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.tianji.api.client.remark.RemarkClient;
 import com.tianji.api.client.user.UserClient;
 import com.tianji.api.dto.user.UserDTO;
+import com.tianji.common.constants.Constant;
 import com.tianji.common.domain.dto.PageDTO;
 import com.tianji.common.exceptions.BizIllegalException;
 import com.tianji.common.exceptions.DbException;
@@ -21,6 +24,8 @@ import com.tianji.learning.mapper.InteractionReplyMapper;
 import com.tianji.learning.service.IInteractionQuestionService;
 import com.tianji.learning.service.IInteractionReplyService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -38,10 +43,21 @@ import java.util.stream.Collectors;
  */
 @Service
 @RequiredArgsConstructor
+//@RefreshScope
+@Slf4j
 public class InteractionReplyServiceImpl extends ServiceImpl<InteractionReplyMapper, InteractionReply> implements IInteractionReplyService {
 
     private final IInteractionQuestionService questionService;
     private final UserClient userClient;
+    private final RemarkClient remarkClient;
+
+    @Value(Constant.CONFIG_BIZTYPE_QA)
+    private String bizType;
+
+//    @PostConstruct
+//    public void testReadRemoteConfig() {
+//        System.out.println(">>>>>>BIZTYPE: " + bizType);
+//    }
 
     /**
      * 新增评论
@@ -95,12 +111,13 @@ public class InteractionReplyServiceImpl extends ServiceImpl<InteractionReplyMap
         if (questionId == null && answerId == null) {
             throw new BizIllegalException("问题id和回答id不可同时为空");
         }
+
         // * 查询数据库
         Page<InteractionReply> page = lambdaQuery()
                 .eq(InteractionReply::getAnswerId, answerId == null ? 0L : answerId)
                 .eq(questionId != null, InteractionReply::getQuestionId, questionId)
                 .eq(!isAdmin, InteractionReply::getHidden, false)
-                .page(query.toMpPageDefaultSortByCreateTimeDesc());
+                .page(query.toMpPage(new OrderItem(Constant.DATA_FIELD_NAME_LIKED_TIME, false), new OrderItem(Constant.DATA_FIELD_NAME_CREATE_TIME, true)));
         List<InteractionReply> records = page.getRecords();
         if (CollUtils.isEmpty(records)) {
             return PageDTO.empty(page);
@@ -137,6 +154,11 @@ public class InteractionReplyServiceImpl extends ServiceImpl<InteractionReplyMap
         List<UserDTO> users = userClient.queryUserByIds(userIds);
         Map<Long, UserDTO> userMap = users.stream()
                                           .collect(Collectors.toMap(UserDTO::getId, Function.identity()));
+        // * 查询点赞过的replyIds
+        List<Long> likedReplyIds = records.stream()
+                                          .map(InteractionReply::getId)
+                                          .collect(Collectors.toList());
+        Set<Long> likedReplyIdSet = remarkClient.queryLikedListByUserIdsAndBizIds(bizType, likedReplyIds);
         // * 补全vo信息
         List<ReplyVO> voList = new ArrayList<>();
         for (InteractionReply record : records) {
@@ -156,6 +178,10 @@ public class InteractionReplyServiceImpl extends ServiceImpl<InteractionReplyMap
                 if (targetUser != null) {
                     vo.setTargetUserName(targetUser.getUsername());
                 }
+            }
+            // * 设置点赞高亮
+            if (likedReplyIdSet.contains(record.getId())) {
+                vo.setLiked(true);
             }
             voList.add(vo);
         }
