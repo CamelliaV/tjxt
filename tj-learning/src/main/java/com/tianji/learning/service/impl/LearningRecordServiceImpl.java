@@ -6,6 +6,8 @@ import com.tianji.api.client.course.CourseClient;
 import com.tianji.api.dto.course.CourseFullInfoDTO;
 import com.tianji.api.dto.leanring.LearningLessonDTO;
 import com.tianji.api.dto.leanring.LearningRecordDTO;
+import com.tianji.common.autoconfigure.mq.RabbitMqHelper;
+import com.tianji.common.constants.MqConstants;
 import com.tianji.common.exceptions.DbException;
 import com.tianji.common.utils.BeanUtils;
 import com.tianji.common.utils.CollUtils;
@@ -14,8 +16,10 @@ import com.tianji.learning.domain.dto.LearningRecordFormDTO;
 import com.tianji.learning.domain.po.LearningLesson;
 import com.tianji.learning.domain.po.LearningRecord;
 import com.tianji.learning.enums.LessonStatus;
+import com.tianji.learning.enums.PointsRecordType;
 import com.tianji.learning.enums.SectionType;
 import com.tianji.learning.mapper.LearningRecordMapper;
+import com.tianji.learning.mq.message.PointsMessage;
 import com.tianji.learning.service.ILearningLessonService;
 import com.tianji.learning.service.ILearningRecordService;
 import com.tianji.learning.task.LearningRecordDelayTaskHandler;
@@ -40,6 +44,7 @@ public class LearningRecordServiceImpl extends ServiceImpl<LearningRecordMapper,
 
     private final ILearningLessonService lessonService;
     private final CourseClient courseClient;
+    private final RabbitMqHelper mqHelper;
     // * 涉及循环依赖 修改了spring.main.allow-circular-references，使用autowired自动确定注入时机
     // * 偷懒复用批量更新（TaskHandler内部）
     @Autowired
@@ -82,6 +87,7 @@ public class LearningRecordServiceImpl extends ServiceImpl<LearningRecordMapper,
 
     /**
      * 提交学习记录
+     * Update-11.19: 第一次完成计入积分
      */
     @Override
     public void addLearningRecord(LearningRecordFormDTO dto) {
@@ -157,6 +163,8 @@ public class LearningRecordServiceImpl extends ServiceImpl<LearningRecordMapper,
                       .equals(sectionNum)) {
                 lesson.setStatus(LessonStatus.FINISHED);
             }
+            // * 首次完成，提交mq奖励积分
+            mqHelper.send(MqConstants.Exchange.LEARNING_EXCHANGE, MqConstants.Key.LEARN_SECTION, PointsMessage.of(userId, PointsRecordType.LEARNING.getRewardPoints()));
         } else {
             // * 非首次完成，缓存数据至Redis中并提交延迟任务
             // * 更新课表在延迟任务中完成

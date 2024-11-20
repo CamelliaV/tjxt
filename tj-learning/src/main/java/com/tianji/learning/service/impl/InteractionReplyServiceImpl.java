@@ -6,7 +6,9 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.tianji.api.client.remark.RemarkClient;
 import com.tianji.api.client.user.UserClient;
 import com.tianji.api.dto.user.UserDTO;
+import com.tianji.common.autoconfigure.mq.RabbitMqHelper;
 import com.tianji.common.constants.Constant;
+import com.tianji.common.constants.MqConstants;
 import com.tianji.common.domain.dto.PageDTO;
 import com.tianji.common.exceptions.BizIllegalException;
 import com.tianji.common.exceptions.DbException;
@@ -19,8 +21,10 @@ import com.tianji.learning.domain.po.InteractionQuestion;
 import com.tianji.learning.domain.po.InteractionReply;
 import com.tianji.learning.domain.query.ReplyPageQuery;
 import com.tianji.learning.domain.vo.ReplyVO;
+import com.tianji.learning.enums.PointsRecordType;
 import com.tianji.learning.enums.QuestionStatus;
 import com.tianji.learning.mapper.InteractionReplyMapper;
+import com.tianji.learning.mq.message.PointsMessage;
 import com.tianji.learning.service.IInteractionQuestionService;
 import com.tianji.learning.service.IInteractionReplyService;
 import lombok.RequiredArgsConstructor;
@@ -50,6 +54,7 @@ public class InteractionReplyServiceImpl extends ServiceImpl<InteractionReplyMap
     private final IInteractionQuestionService questionService;
     private final UserClient userClient;
     private final RemarkClient remarkClient;
+    private final RabbitMqHelper mqHelper;
 
     @Value(Constant.CONFIG_BIZTYPE_QA)
     private String bizType;
@@ -61,6 +66,7 @@ public class InteractionReplyServiceImpl extends ServiceImpl<InteractionReplyMap
 
     /**
      * 新增评论
+     * Update-11.19: 提交评论计入积分
      */
     @Override
     @Transactional
@@ -68,12 +74,13 @@ public class InteractionReplyServiceImpl extends ServiceImpl<InteractionReplyMap
         // * 健壮性校验
         Long questionId = dto.getQuestionId();
         Long answerId = dto.getAnswerId();
+        Long userId = UserContext.getUser();
         if (questionId == null && answerId == null) {
             throw new BizIllegalException("问题id和回答id不可同时为空");
         }
         // * 补全评论者id
         InteractionReply reply = BeanUtils.copyBean(dto, InteractionReply.class);
-        reply.setUserId(UserContext.getUser());
+        reply.setUserId(userId);
         // * 保存评论
         boolean success = save(reply);
         if (!success) {
@@ -98,6 +105,8 @@ public class InteractionReplyServiceImpl extends ServiceImpl<InteractionReplyMap
                        .set(BooleanUtils.isTrue(dto.getIsStudent()), InteractionQuestion::getStatus, QuestionStatus.UN_CHECK)
                        .eq(InteractionQuestion::getId, reply.getQuestionId())
                        .update();
+        // * 回答获得积分，推送mq
+        mqHelper.send(MqConstants.Exchange.LEARNING_EXCHANGE, MqConstants.Key.WRITE_REPLY, PointsMessage.of(userId, PointsRecordType.QA.getRewardPoints()));
     }
 
     /**

@@ -30,6 +30,9 @@ public interface MqConstants {
         String ERROR_QUEUE_TEMPLATE = "error.{}.queue";
         String ORDER_PAY_QUEUE = "learning.lesson.pay.queue";
         String ORDER_REFUND_QUEUE = "learning.lesson.refund.queue";
+        String SIGN_POINTS_QUEUE = "sign.points.queue";
+        String LEARNING_POINTS_QUEUE = "learning.points.queue";
+        String QA_POINTS_QUEUE = "qa.points.queue";
     }
 
     interface Key {
