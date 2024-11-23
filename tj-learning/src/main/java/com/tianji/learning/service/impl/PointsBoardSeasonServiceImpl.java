@@ -23,6 +23,7 @@ import java.util.List;
  */
 @Service
 public class PointsBoardSeasonServiceImpl extends ServiceImpl<PointsBoardSeasonMapper, PointsBoardSeason> implements IPointsBoardSeasonService {
+
     /**
      * 赛季列表查询
      */

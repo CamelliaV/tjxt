@@ -40,7 +40,8 @@ public class LearningRecordDelayTaskHandler {
 
     private final static String RECORD_KEY_TEMPLATE = "learning:record:{}";
     // * 实际核心数，非逻辑处理器数
-    private final static int CPU_ACTUAL_CORES = 8;
+    // private final static int CPU_ACTUAL_CORES = 8;
+    private final static int CPU_ACTUAL_CORES = 1;
     private static volatile boolean begin = true;
     private final StringRedisTemplate redisTemplate;
     private final DelayQueue<DelayTask<RecordTaskData>> queue = new DelayQueue<>();

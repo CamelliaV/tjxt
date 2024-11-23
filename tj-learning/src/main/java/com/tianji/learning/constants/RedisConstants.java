@@ -8,4 +8,6 @@ package com.tianji.learning.constants;
 public interface RedisConstants {
     String SIGN_RECORD_KEY_PREFIX = "sign:uid:";
     String POINTS_BOARD_KEY_PREFIX = "boards:";
+    String SYNC_BOARD_XXL_JOB_TIMES = "sync:board:xxl:times";
+    String SYNC_BOARD_XXL_SHARD_TOTAL = "sync:board:xxl:total";
 }

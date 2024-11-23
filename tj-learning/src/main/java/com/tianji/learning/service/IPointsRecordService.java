@@ -21,4 +21,10 @@ public interface IPointsRecordService extends IService<PointsRecord> {
     void addPointsRecord(PointsMessage message, PointsRecordType type);
 
     List<PointsStatisticsVO> queryMyPointsToday();
+
+    void pointsRecordArchive();
+
+    void deletePointsRecordWithRange(Long minId, Long maxId, int limit);
+
+    void pointsRecordArchiveSimple();
 }
