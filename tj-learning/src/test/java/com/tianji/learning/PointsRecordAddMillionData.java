@@ -18,28 +18,27 @@ import java.util.List;
 @SpringBootTest(classes = LearningApplication.class)
 @Slf4j
 public class PointsRecordAddMillionData {
-    // * 必须Autowired
-    @Autowired
-    private
-    IPointsRecordService pointsRecordService;
+	// * 必须Autowired
+	@Autowired
+	private IPointsRecordService pointsRecordService;
 
-    @Test
-    public void addMillionPointsRecord() {
-        // * 表应该为int积分类型
-        for (int i = 0; i < 1_000_000; i += 1000) {
-            List<PointsRecord> recordList = new ArrayList<>();
-            for (int j = 0; j < 1000; j++) {
-                long userId = (int) (Math.random() * 10001);
-                int type = (int) (Math.random() * 5) + 1;
-                PointsRecordType recordType = PointsRecordType.of(type);
-                int points = (int) (Math.random() * 1145140721) + 1;
-                PointsRecord record = new PointsRecord();
-                record.setPoints(points);
-                record.setType(recordType);
-                record.setUserId(userId);
-                recordList.add(record);
-            }
-            pointsRecordService.saveBatch(recordList);
-        }
-    }
+	@Test
+	public void addMillionPointsRecord() {
+		// * 表应该为int积分类型
+		for (int i = 0; i < 1_000_000; i += 1000) {
+			List<PointsRecord> recordList = new ArrayList<>();
+			for (int j = 0; j < 1000; j++) {
+				long userId = (int) (Math.random() * 10001);
+				int type = (int) (Math.random() * 5) + 1;
+				PointsRecordType recordType = PointsRecordType.of(type);
+				int points = (int) (Math.random() * 1145140721) + 1;
+				PointsRecord record = new PointsRecord();
+				record.setPoints(points);
+				record.setType(recordType);
+				record.setUserId(userId);
+				recordList.add(record);
+			}
+			pointsRecordService.saveBatch(recordList);
+		}
+	}
 }
