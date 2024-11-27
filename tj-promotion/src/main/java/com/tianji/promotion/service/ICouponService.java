@@ -8,6 +8,9 @@ import com.tianji.promotion.domain.po.Coupon;
 import com.tianji.promotion.domain.query.CouponQuery;
 import com.tianji.promotion.domain.vo.CouponDetailVO;
 import com.tianji.promotion.domain.vo.CouponPageVO;
+import com.tianji.promotion.domain.vo.CouponVO;
+
+import java.util.List;
 
 /**
  * <p>
@@ -36,4 +39,6 @@ public interface ICouponService extends IService<Coupon> {
 	void checkAndFinishCoupons(int page, int size);
 
 	void pauseCouponIssue(Long id);
+
+	List<CouponVO> queryIssuingCouponList();
 }

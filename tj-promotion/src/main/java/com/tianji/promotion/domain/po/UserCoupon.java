@@ -3,6 +3,7 @@ package com.tianji.promotion.domain.po;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
+import com.tianji.promotion.enums.UserCouponStatus;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.experimental.Accessors;
@@ -58,14 +59,9 @@ public class UserCoupon implements Serializable {
 	private LocalDateTime usedTime;
 
 	/**
-	 * 使用该券的订单id
-	 */
-	private String orderId;
-
-	/**
 	 * 优惠券状态，1：未使用，2：已使用，3：已失效
 	 */
-	private Integer status;
+	private UserCouponStatus status;
 
 	/**
 	 * 创建时间

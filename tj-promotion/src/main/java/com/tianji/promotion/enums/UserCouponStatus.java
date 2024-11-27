@@ -1,30 +1,30 @@
 package com.tianji.promotion.enums;
 
+import com.baomidou.mybatisplus.annotation.EnumValue;
 import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.annotation.JsonValue;
 import com.tianji.common.enums.BaseEnum;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 
 @Getter
 @AllArgsConstructor
-@JsonFormat(shape = JsonFormat.Shape.OBJECT)
-public enum ScopeType implements BaseEnum {
-	ALL(0, "全部"),
-	CATEGORY(1, "指定分类"),
-	COURSE(2, "指定课程"),
+public enum UserCouponStatus implements BaseEnum {
+	UNUSED(1, "未使用"),
+	USED(2, "已使用"),
+	EXPIRED(3, "已过期"),
 	;
-	public static final String CATEGORY_HANDLER_NAME = "CATEGORY";
-	public static final String COURSE_HANDLER_NAME = "COURSE";
+	@EnumValue
+	@JsonValue
 	private final int value;
 	private final String desc;
 
-	@JsonCreator
-	public static ScopeType of(Integer value) {
+	@JsonCreator(mode = JsonCreator.Mode.DELEGATING)
+	public static UserCouponStatus of(Integer value) {
 		if (value == null) {
 			return null;
 		}
-		for (ScopeType status : values()) {
+		for (UserCouponStatus status : values()) {
 			if (status.value == value) {
 				return status;
 			}
@@ -33,7 +33,7 @@ public enum ScopeType implements BaseEnum {
 	}
 
 	public static String desc(Integer value) {
-		ScopeType status = of(value);
+		UserCouponStatus status = of(value);
 		return status == null ? "" : status.desc;
 	}
 }

@@ -1,6 +1,6 @@
 # 天机学堂 walkthrough
 
-目前进度：Day9-优惠劵管理 完成
+目前进度：Day10-领取优惠劵 完成
 
 具体进度与提交内容参考commit history
 
