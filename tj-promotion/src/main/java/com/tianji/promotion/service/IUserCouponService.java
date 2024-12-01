@@ -17,13 +17,19 @@ import com.tianji.promotion.domain.vo.CouponVO;
  */
 public interface IUserCouponService extends IService<UserCoupon> {
 
+	void cacheCouponInfoWithLua(Coupon coupon);
+
 	void receiveCoupon(Long id);
+
+	void exchangeCouponWithLua(String code);
 
 	void exchangeCoupon(String code);
 
-	void checkAndCreateUserCoupon(Coupon coupon);
+	void checkAndCreateUserCoupon(Coupon coupon, Long userId);
 
 	PageDTO<CouponVO> queryMyCoupon(UserCouponQuery query);
 
-	void checkAndCreateUserCouponWithCode(Coupon coupon, Long id);
+	void checkAndCreateUserCouponWithCode(Coupon coupon, Long userId, Long serialNum);
+
+	void receiveCouponImplWithLua(Long id);
 }

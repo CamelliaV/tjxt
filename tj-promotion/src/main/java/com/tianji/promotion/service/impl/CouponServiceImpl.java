@@ -7,10 +7,8 @@ import com.tianji.common.domain.dto.PageDTO;
 import com.tianji.common.exceptions.BadRequestException;
 import com.tianji.common.exceptions.BizIllegalException;
 import com.tianji.common.exceptions.DbException;
-import com.tianji.common.utils.BeanUtils;
-import com.tianji.common.utils.CollUtils;
-import com.tianji.common.utils.StringUtils;
-import com.tianji.common.utils.UserContext;
+import com.tianji.common.utils.*;
+import com.tianji.promotion.constants.PromotionConstants;
 import com.tianji.promotion.domain.dto.CouponFormDTO;
 import com.tianji.promotion.domain.dto.CouponIssueFormDTO;
 import com.tianji.promotion.domain.po.Coupon;
@@ -24,6 +22,7 @@ import com.tianji.promotion.domain.vo.CouponVO;
 import com.tianji.promotion.enums.CouponStatus;
 import com.tianji.promotion.enums.ObtainType;
 import com.tianji.promotion.enums.UserCouponStatus;
+import com.tianji.promotion.job.CouponHandler;
 import com.tianji.promotion.mapper.CouponMapper;
 import com.tianji.promotion.service.ICouponScopeService;
 import com.tianji.promotion.service.ICouponService;
@@ -32,11 +31,14 @@ import com.tianji.promotion.service.IUserCouponService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 /**
@@ -54,6 +56,7 @@ public class CouponServiceImpl extends ServiceImpl<CouponMapper, Coupon> impleme
 	private final ICouponScopeService couponScopeService;
 	private final IExchangeCodeService exchangeCodeService;
 	private final CategoryCache categoryCache;
+	private final StringRedisTemplate redisTemplate;
 	@Autowired
 	private IUserCouponService userCouponService;
 
@@ -141,12 +144,33 @@ public class CouponServiceImpl extends ServiceImpl<CouponMapper, Coupon> impleme
 		}
 		// * 更新数据库
 		updateById(couponToUpdate);
+		// * 如果立即发放，现在就缓存至Redis，不然延期缓存
+		if (isBegin) {
+			coupon.setIssueBeginTime(couponToUpdate.getIssueBeginTime());
+			coupon.setIssueEndTime(dto.getIssueEndTime());
+			userCouponService.cacheCouponInfoWithLua(coupon);
+		}
 		// * 使用兑换码获取并且未发放（暂停状态之前已生成兑换码，不应重复生成）
 		if (coupon.getObtainWay() == ObtainType.ISSUE && coupon.getStatus() == CouponStatus.DRAFT) {
 			// * 从dto补全发行结束时间（兑换码失效时间）
 			coupon.setIssueEndTime(dto.getIssueEndTime());
 			exchangeCodeService.generateCode(coupon);
 		}
+	}
+
+	@Override
+	public void cacheCouponInfo(Coupon coupon) {
+		String key = PromotionConstants.COUPON_CACHE_PREFIX + coupon.getId();
+		Map<String, String> couponInfoMap = new HashMap<>();
+		// * 仅放入用于后续领取/兑换时需要校验的字段值
+		couponInfoMap.put("issueBeginTime",
+				coupon.getIssueBeginTime().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
+		couponInfoMap.put("issueEndTime",
+				coupon.getIssueEndTime().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
+		couponInfoMap.put("totalNum", coupon.getTotalNum().toString());
+		couponInfoMap.put("userLimit", coupon.getUserLimit().toString());
+		redisTemplate.opsForHash()
+				.putAll(key, couponInfoMap);
 	}
 
 	/**
@@ -263,42 +287,24 @@ public class CouponServiceImpl extends ServiceImpl<CouponMapper, Coupon> impleme
 	 * 定时发放未发放状态的优惠劵
 	 */
 	@Override
-	public void checkAndIssueCoupons(int page, int size) {
+	public void checkAndIssueCoupons(int shardIndex, int shardTotal, int size) {
 		LocalDateTime now = LocalDateTime.now();
-		// * 分开获取同size的page，就算WHERE条件动态，只会有本轮数据的遗漏，但没有数据修改的冲突，不会多次修改
-		Page<Coupon> resultPage = lambdaQuery()
-				.eq(Coupon::getStatus, CouponStatus.UN_ISSUE)
-				.le(Coupon::getIssueBeginTime, now)
-				.page(new Page<>(page, size));
-		// * 更改状态，更新数据库
-		List<Coupon> records = resultPage.getRecords();
-		if (CollUtils.isNotEmpty(records)) {
-			for (Coupon record : records) {
-				record.setStatus(CouponStatus.ISSUING);
-			}
-			updateBatchById(records);
-		}
+		CouponStatus oldStatus = CouponStatus.UN_ISSUE;
+		CouponStatus newStatus = CouponStatus.ISSUING;
+
+		// * MOD筛选id，数据修改不重叠，不会多次修改
+		getBaseMapper().updateCouponIssueStatusByPage(shardIndex, shardTotal, size, oldStatus, now, newStatus);
 	}
 
 	/**
 	 * 截止优惠劵发放
 	 */
 	@Override
-	public void checkAndFinishCoupons(int page, int size) {
+	public void checkAndFinishCoupons(int shardIndex, int shardTotal, int size) {
 		LocalDateTime now = LocalDateTime.now();
-		// * 分开获取同size的page，就算WHERE条件动态，只会有本轮数据的遗漏，但没有数据修改的冲突，不会多次修改
-		Page<Coupon> resultPage = lambdaQuery()
-				.eq(Coupon::getStatus, CouponStatus.ISSUING)
-				.le(Coupon::getIssueEndTime, now)
-				.page(new Page<>(page, size));
-		// * 更改状态，更新数据库
-		List<Coupon> records = resultPage.getRecords();
-		if (CollUtils.isNotEmpty(records)) {
-			for (Coupon record : records) {
-				record.setStatus(CouponStatus.FINISHED);
-			}
-			updateBatchById(records);
-		}
+		CouponStatus oldStatus = CouponStatus.ISSUING;
+		CouponStatus newStatus = CouponStatus.FINISHED;
+		getBaseMapper().updateCouponIssueStatusByPage(shardIndex, shardTotal, size, oldStatus, now, newStatus);
 	}
 
 	/**
@@ -314,6 +320,8 @@ public class CouponServiceImpl extends ServiceImpl<CouponMapper, Coupon> impleme
 				.eq(Coupon::getStatus, CouponStatus.ISSUING)
 				.set(Coupon::getStatus, CouponStatus.PAUSE)
 				.update();
+		String key = PromotionConstants.COUPON_CACHE_PREFIX + id;
+		redisTemplate.opsForHash().delete(key, "issueBeginTime", "issueEndTime", "totalNum", "userLimit");
 	}
 
 	/**
@@ -357,5 +365,85 @@ public class CouponServiceImpl extends ServiceImpl<CouponMapper, Coupon> impleme
 			voList.add(vo);
 		}
 		return voList;
+	}
+
+	@Override
+	@Transactional
+	public void checkAndIssueCoupons2PC(int shardIndex, int shardTotal, int size, String key, List<String> waitingKeys) {
+		LocalDateTime now = LocalDateTime.now();
+		// * 分页查询，只要其他事务没有在读取前提交，数据就不会冲突
+		Page<Coupon> resultPage = lambdaQuery()
+				.eq(Coupon::getStatus, CouponStatus.UN_ISSUE)
+				.le(Coupon::getIssueBeginTime, now)
+				.page(new Page<>(shardIndex, size));
+		// * 更改状态，更新数据库
+		List<Coupon> records = resultPage.getRecords();
+		if (CollUtils.isNotEmpty(records)) {
+			for (Coupon record : records) {
+				record.setStatus(CouponStatus.ISSUING);
+			}
+			updateBatchById(records);
+		}
+		// * 完成业务，写入自己对应的redis队列
+		redisTemplate.opsForList().leftPush(key, "random value");
+		// * 尝试读取其他的队列，获取成功，提交，不成功超时，同样提交（xxljob中设置任务超时[时间大于此处等待，但小于业务周期]，让执行超时的进程自行结束任务）
+		long timeout = CouponHandler.COUPON_STATUS_UPDATE_TIMEOUT;
+		TimeUnit unit = CouponHandler.COUPON_STATUS_UPDATE_TIMEOUT_UNIT;
+		// * 有一个超时直接提交
+		long before = DateUtils.toEpochMilli(LocalDateTime.now());
+		for (String waitingKey : waitingKeys) {
+			String result = redisTemplate.opsForList().leftPop(waitingKey, timeout, unit);
+			// * 等待超时，业务提交
+			if (result == null) {
+				return;
+			}
+			long passedSeconds = (DateUtils.toEpochMilli(LocalDateTime.now()) - before) / 1000;
+			timeout -= passedSeconds;
+			// * 总计等待超时，业务提交
+			if (timeout <= 0) {
+				return;
+			}
+		}
+		// * 成功获得所有其他队列的数据，执行成功业务提交
+	}
+
+	@Override
+	@Transactional
+	public void checkAndFinishCoupons2PC(int shardIndex, int shardTotal, int size, String key, List<String> waitingKeys) {
+		LocalDateTime now = LocalDateTime.now();
+		// * 分页查询，只要其他事务没有在读取前提交，数据就不会冲突
+		Page<Coupon> resultPage = lambdaQuery()
+				.eq(Coupon::getStatus, CouponStatus.ISSUING)
+				.le(Coupon::getIssueEndTime, now)
+				.page(new Page<>(shardIndex, size));
+		// * 更改状态，更新数据库
+		List<Coupon> records = resultPage.getRecords();
+		if (CollUtils.isNotEmpty(records)) {
+			for (Coupon record : records) {
+				record.setStatus(CouponStatus.FINISHED);
+			}
+			updateBatchById(records);
+		}
+		// * 完成业务，写入自己对应的redis队列
+		redisTemplate.opsForList().leftPush(key, "random value");
+		// * 尝试读取其他的队列，获取成功，提交，不成功超时，同样提交（xxljob中设置任务超时[时间大于此处等待，但小于业务周期]，让执行超时的进程自行结束任务）
+		long timeout = CouponHandler.COUPON_STATUS_UPDATE_TIMEOUT;
+		TimeUnit unit = CouponHandler.COUPON_STATUS_UPDATE_TIMEOUT_UNIT;
+		// * 有一个超时直接提交
+		long before = DateUtils.toEpochMilli(LocalDateTime.now());
+		for (String waitingKey : waitingKeys) {
+			String result = redisTemplate.opsForList().leftPop(waitingKey, timeout, unit);
+			// * 等待超时，业务提交
+			if (result == null) {
+				return;
+			}
+			long passedSeconds = (DateUtils.toEpochMilli(LocalDateTime.now()) - before) / 1000;
+			timeout -= passedSeconds;
+			// * 总计等待超时，业务提交
+			if (timeout <= 0) {
+				return;
+			}
+		}
+		// * 成功获得所有其他队列的数据，执行成功业务提交
 	}
 }

@@ -28,17 +28,23 @@ public interface ICouponService extends IService<Coupon> {
 
 	void issueCoupon(CouponIssueFormDTO dto);
 
+	void cacheCouponInfo(Coupon coupon);
+
 	void updateCoupon(CouponFormDTO dto);
 
 	void deleteCoupon(Long id);
 
 	CouponDetailVO queryCouponDetailById(Long id);
 
-	void checkAndIssueCoupons(int page, int size);
+	void checkAndIssueCoupons(int shardIndex, int shardTotal, int size);
 
-	void checkAndFinishCoupons(int page, int size);
+	void checkAndFinishCoupons(int shardIndex, int shardTotal, int size);
 
 	void pauseCouponIssue(Long id);
 
 	List<CouponVO> queryIssuingCouponList();
+
+	void checkAndIssueCoupons2PC(int shardIndex, int shardTotal, int size, String key, List<String> waitingKeys);
+
+	void checkAndFinishCoupons2PC(int shardIndex, int shardTotal, int size, String key, List<String> waitingKeys);
 }
