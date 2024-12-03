@@ -3,6 +3,7 @@ package com.tianji.promotion.controller;
 
 import com.tianji.common.domain.dto.PageDTO;
 import com.tianji.promotion.domain.dto.CouponDiscountDTO;
+import com.tianji.promotion.domain.dto.OrderCouponDTO;
 import com.tianji.promotion.domain.dto.OrderCourseDTO;
 import com.tianji.promotion.domain.query.UserCouponQuery;
 import com.tianji.promotion.domain.vo.CouponVO;
@@ -31,10 +32,28 @@ public class UserCouponController {
 	private final IUserCouponService userCouponService;
 	private final IDiscountService discountService;
 
-	@ApiOperation("查询可用优惠卷")
+	@ApiOperation("查询可用优惠方案优惠详情")
 	@PostMapping("/available")
 	public List<CouponDiscountDTO> findDiscountSolution(@RequestBody List<OrderCourseDTO> orderCourseDTOList) {
 		return discountService.findDiscountSolution(orderCourseDTOList);
+	}
+
+	@ApiOperation("查询指定方案优惠详情")
+	@PostMapping("/discount")
+	public CouponDiscountDTO queryDiscountDetailByOrder(@RequestBody OrderCouponDTO dto) {
+		return discountService.queryDiscountDetailByOrder(dto);
+	}
+
+	@ApiOperation("核销指定优惠券")
+	@PutMapping("/use")
+	public void writeOffCoupon(@RequestParam("couponIds") List<Long> userCouponIds) {
+		userCouponService.writeOffCoupon(userCouponIds);
+	}
+
+	@ApiOperation("退还指定优惠券")
+	@PutMapping("/refund")
+	public void refundCoupon(@RequestParam("couponIds") List<Long> userCouponIds) {
+		userCouponService.refundCoupon(userCouponIds);
 	}
 
 	@ApiOperation("领取优惠劵")
@@ -55,5 +74,11 @@ public class UserCouponController {
 	@GetMapping("/page")
 	public PageDTO<CouponVO> queryMyCoupon(UserCouponQuery query) {
 		return userCouponService.queryMyCoupon(query);
+	}
+
+	@ApiOperation("根据优惠劵id集合查询优惠券规则集合")
+	@GetMapping("/rules")
+	public List<String> queryDiscountRules(@RequestParam("couponIds") List<Long> userCouponIds) {
+		return userCouponService.queryDiscountRules(userCouponIds);
 	}
 }

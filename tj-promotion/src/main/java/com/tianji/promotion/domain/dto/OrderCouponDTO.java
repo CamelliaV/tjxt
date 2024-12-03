@@ -1,7 +1,6 @@
 package com.tianji.promotion.domain.dto;
 
 
-import com.tianji.api.dto.promotion.OrderCourseDTO;
 import io.swagger.annotations.ApiModel;
 import io.swagger.annotations.ApiModelProperty;
 import lombok.AllArgsConstructor;

@@ -22,10 +22,12 @@ import com.tianji.promotion.domain.query.UserCouponQuery;
 import com.tianji.promotion.domain.vo.CouponVO;
 import com.tianji.promotion.enums.CouponStatus;
 import com.tianji.promotion.enums.ExchangeCodeStatus;
+import com.tianji.promotion.enums.UserCouponStatus;
 import com.tianji.promotion.mapper.UserCouponMapper;
 import com.tianji.promotion.service.ICouponService;
 import com.tianji.promotion.service.IExchangeCodeService;
 import com.tianji.promotion.service.IUserCouponService;
+import com.tianji.promotion.strategy.discount.DiscountStrategy;
 import com.tianji.promotion.utils.CodeUtil;
 import lombok.RequiredArgsConstructor;
 import org.redisson.api.RLock;
@@ -206,6 +208,102 @@ public class UserCouponServiceImpl extends ServiceImpl<UserCouponMapper, UserCou
 		dto.setUserId(userId);
 
 		rabbitMqHelper.send(MqConstants.Exchange.PROMOTION_EXCHANGE, MqConstants.Key.COUPON_RECEIVED, dto);
+	}
+
+	/**
+	 * 核销优惠劵
+	 */
+	@Override
+	@Transactional
+	public void writeOffCoupon(List<Long> userCouponIds) {
+		// * 查询用户卷
+		List<UserCoupon> userCoupons = listByIds(userCouponIds);
+		if (CollUtils.isEmpty(userCoupons)) {
+			throw new DbException("没有对应id的优惠卷可以核销");
+		}
+		// * 过滤无效卷
+		List<UserCoupon> updateList = userCoupons.stream()
+				.filter(c -> {
+					if (c == null) {
+						return false;
+					}
+					if (c.getStatus() != UserCouponStatus.UNUSED) {
+						return false;
+					}
+					LocalDateTime now = LocalDateTime.now();
+					return !now.isAfter(c.getTermEndTime()) && !now.isBefore(c.getTermBeginTime());
+				})
+				// * 构造更新用数据
+				// 组织新增数据
+				.map(coupon -> {
+					UserCoupon c = new UserCoupon();
+					c.setId(coupon.getId());
+					c.setStatus(UserCouponStatus.USED);
+					return c;
+				})
+				.collect(Collectors.toList());
+
+		// * 修改优惠券状态
+		boolean success = updateBatchById(updateList);
+		if (!success) {
+			throw new DbException("更新优惠劵状态核销失败");
+		}
+		// * 更新优惠劵表已使用数
+		List<Long> couponIds = userCoupons.stream().map(UserCoupon::getCouponId).collect(Collectors.toList());
+		success = couponService.lambdaUpdate()
+				.setSql("used_num = used_num + 1")
+				.in(Coupon::getId, couponIds)
+				.update();
+		if (!success) {
+			throw new DbException("更新优惠劵表已使用数失败");
+		}
+	}
+
+	@Override
+	@Transactional
+	public void refundCoupon(List<Long> userCouponIds) {
+		// * 查询优惠劵
+		List<UserCoupon> userCoupons = listByIds(userCouponIds);
+		if (CollUtils.isEmpty(userCoupons)) {
+			throw new DbException("数据库无对应id用户卷");
+		}
+		// * 构造更新
+		List<UserCoupon> updateList = userCoupons.stream()
+				.filter(coupon -> coupon != null && UserCouponStatus.USED == coupon.getStatus())
+				.map(coupon -> {
+					UserCoupon c = new UserCoupon();
+					c.setId(coupon.getId());
+					LocalDateTime now = LocalDateTime.now();
+					UserCouponStatus status = now.isAfter(coupon.getTermEndTime()) ?
+							UserCouponStatus.EXPIRED : UserCouponStatus.UNUSED;
+					c.setStatus(status);
+					return c;
+				}).collect(Collectors.toList());
+
+		boolean success = updateBatchById(updateList);
+		if (!success) {
+			throw new DbException("修改用户卷状态失败");
+		}
+		// * 更新优惠劵表已使用数
+		List<Long> couponIds = userCoupons.stream().map(UserCoupon::getCouponId).collect(Collectors.toList());
+		success = couponService.lambdaUpdate()
+				.setSql("used_num = used_num - 1")
+				.in(Coupon::getId, couponIds)
+				.update();
+		if (!success) {
+			throw new DbException("更新优惠劵表已使用数失败");
+		}
+	}
+
+	@Override
+	public List<String> queryDiscountRules(List<Long> userCouponIds) {
+		List<Coupon> coupons = getBaseMapper().queryCouponByUserCouponIds(userCouponIds, UserCouponStatus.USED);
+		if (CollUtils.isEmpty(coupons)) {
+			return CollUtils.emptyList();
+		}
+		return coupons.stream()
+				.map(c -> DiscountStrategy.getDiscount(c.getDiscountType()).getRule(c))
+				.collect(Collectors.toList());
 	}
 
 	private void cacheCouponInfo(Coupon coupon) {

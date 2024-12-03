@@ -14,13 +14,13 @@ import java.util.Set;
  */
 @Slf4j
 public class RemarkClientFallback implements FallbackFactory<RemarkClient> {
-    @Override
-    public RemarkClient create(Throwable cause) {
-        return new RemarkClient() {
-            @Override
-            public Set<Long> queryLikedListByUserIdsAndBizIds(String bizType, List<Long> bizIds) {
-                return CollUtils.emptySet();
-            }
-        };
-    }
+	@Override
+	public RemarkClient create(Throwable cause) {
+		return new RemarkClient() {
+			@Override
+			public Set<Long> queryLikedListByUserIdsAndBizIds(String bizType, List<Long> bizIds) {
+				return CollUtils.emptySet();
+			}
+		};
+	}
 }

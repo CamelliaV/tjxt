@@ -304,7 +304,7 @@ public class CouponServiceImpl extends ServiceImpl<CouponMapper, Coupon> impleme
 		LocalDateTime now = LocalDateTime.now();
 		CouponStatus oldStatus = CouponStatus.ISSUING;
 		CouponStatus newStatus = CouponStatus.FINISHED;
-		getBaseMapper().updateCouponIssueStatusByPage(shardIndex, shardTotal, size, oldStatus, now, newStatus);
+		getBaseMapper().updateCouponFinishStatusByPage(shardIndex, shardTotal, size, oldStatus, now, newStatus);
 	}
 
 	/**

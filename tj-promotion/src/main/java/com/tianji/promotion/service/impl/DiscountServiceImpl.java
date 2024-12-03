@@ -4,9 +4,11 @@ import com.tianji.common.utils.BooleanUtils;
 import com.tianji.common.utils.CollUtils;
 import com.tianji.common.utils.UserContext;
 import com.tianji.promotion.domain.dto.CouponDiscountDTO;
+import com.tianji.promotion.domain.dto.OrderCouponDTO;
 import com.tianji.promotion.domain.dto.OrderCourseDTO;
 import com.tianji.promotion.domain.po.Coupon;
 import com.tianji.promotion.domain.po.CouponScope;
+import com.tianji.promotion.enums.UserCouponStatus;
 import com.tianji.promotion.mapper.UserCouponMapper;
 import com.tianji.promotion.service.ICouponScopeService;
 import com.tianji.promotion.service.IDiscountService;
@@ -30,7 +32,7 @@ import java.util.stream.Collectors;
  */
 @Service
 @RequiredArgsConstructor
-public class IDiscountServiceImpl implements IDiscountService {
+public class DiscountServiceImpl implements IDiscountService {
 	private final UserCouponMapper userCouponMapper;
 	private final ICouponScopeService couponScopeService;
 	private final Executor discountSolutionExecutor;
@@ -93,6 +95,29 @@ public class IDiscountServiceImpl implements IDiscountService {
 		return findBestSolution(couponDiscountDTOList);
 	}
 
+	@Override
+	public CouponDiscountDTO queryDiscountDetailByOrder(OrderCouponDTO dto) {
+		// * 查询用户卷对应的优惠劵
+		List<Coupon> validCouponList = userCouponMapper.queryCouponByUserCouponIds(dto.getUserCouponIds(), UserCouponStatus.UNUSED);
+		if (CollUtils.isEmpty(validCouponList)) {
+			return null;
+		}
+		// * 查询优惠劵可用课程
+		List<OrderCourseDTO> orderCourseDTOList = dto.getCourseList();
+		if (CollUtils.isEmpty(orderCourseDTOList)) {
+			return null;
+		}
+		Map<Coupon, List<OrderCourseDTO>> validCouponMap = findValidCouponMap(validCouponList, orderCourseDTOList);
+		if (CollUtils.isEmpty(validCouponMap)) {
+			return null;
+		}
+		// * 计算优惠详情 （复用原本接口，修改一条设置detailMap）
+		return calculateSolution(validCouponList, validCouponMap, orderCourseDTOList);
+	}
+
+	/**
+	 * 根据可用优惠劵构建所有方案计算优惠并选出最优方案
+	 */
 	private List<CouponDiscountDTO> findBestSolution(List<CouponDiscountDTO> couponDiscountDTOList) {
 		// * （用卷相同）优惠金额最高/（优惠金额相同）用卷最少
 		Map<String, CouponDiscountDTO> moreDiscountMap = new HashMap<>();
@@ -126,6 +151,10 @@ public class IDiscountServiceImpl implements IDiscountService {
 		return intersection.stream().sorted(Comparator.comparingInt(CouponDiscountDTO::getDiscountAmount).reversed()).collect(Collectors.toList());
 	}
 
+	/**
+	 * 根据指定方案计算优惠
+	 */
+
 	// * 计算优惠明细
 	private CouponDiscountDTO calculateSolution(List<Coupon> solution, Map<Coupon, List<OrderCourseDTO>> validCouponMap, List<OrderCourseDTO> orderCourseDTOList) {
 		// * 初始化返回dto与折扣明细Map
@@ -155,6 +184,7 @@ public class IDiscountServiceImpl implements IDiscountService {
 			dto.getRules().add(discount.getRule(coupon));
 			dto.setDiscountAmount(dto.getDiscountAmount() + discountAmount);
 		}
+		dto.setDiscountDetailMap(detailMap);
 		return dto;
 	}
 

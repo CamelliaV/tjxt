@@ -1,6 +1,7 @@
 package com.tianji.promotion.service;
 
 import com.tianji.promotion.domain.dto.CouponDiscountDTO;
+import com.tianji.promotion.domain.dto.OrderCouponDTO;
 import com.tianji.promotion.domain.dto.OrderCourseDTO;
 
 import java.util.List;
@@ -12,4 +13,6 @@ import java.util.List;
 
 public interface IDiscountService {
 	List<CouponDiscountDTO> findDiscountSolution(List<OrderCourseDTO> orderCourseDTOList);
+
+	CouponDiscountDTO queryDiscountDetailByOrder(OrderCouponDTO dto);
 }
